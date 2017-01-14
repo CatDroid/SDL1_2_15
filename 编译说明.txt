@@ -1,0 +1,156 @@
+1.下载从www.libsdl.org/download-1.2.php (ffmpeg需要用到1.2版本SDL 不能用2.x版本 SDL2.x有改动一些变量函数定义等)
+2. ./configure --prefix=`pwd`/MyUbuntu 指定安装目录MyUbuntu
+3. make遇到错误(ubuntu14.04 64bits)
+error: conflicting types for ‘_XData32’
+ SDL_X11_SYM(int,_XData32,(Display *dpy,register long *data,unsigned len),(dpy,data,len),return)
+                 ^
+./src/video/x11/SDL_x11dyn.c:95:5: note: in definition of macro ‘SDL_X11_SYM’
+  rc fn params { ret p##fn args ; }
+     ^
+In file included from ./src/video/x11/SDL_x11dyn.h:34:0,
+                 from ./src/video/x11/SDL_x11dyn.c:26:
+/usr/include/X11/Xlibint.h:568:12: note: previous declaration of ‘_XData32’ was here
+ extern int _XData32(
+build-deps:1154: recipe for target 'build/SDL_x11dyn.lo' failed
+make: *** [build/SDL_x11dyn.lo] Error 1
+make: *** Waiting for unfinished jobs....
+
+解决办法：
+vi src/video/x11/SDL_x11sym.h
+跳到168行，将
+SDL_X11_SYM(int,_XData32,(Display *dpy,register  long *data,unsigned len),(dpy,data,len),return)
+修改为
+SDL_X11_SYM(int,_XData32,(Display *dpy,register _Xconst long *data,unsigned len),(dpy,data,len),return)
+
+4. make  make install 安装在 MyUbuntu目录 
+
+5. 使用编译出来的sdl-config确认编译/安装信息 
+$ ./sdl-config --cflags
+-I/home/hanlon/Cat6/git_qq_yun/SDL1_2_15/MyUbuntu/include/SDL -D_GNU_SOURCE=1 -D_REENTRANT
+
+$ ./sdl-config --libs
+-L/home/hanlon/Cat6/git_qq_yun/SDL1_2_15/MyUbuntu/lib -Wl,-rpath,/home/hanlon/Cat6/git_qq_yun/SDL1_2_15/MyUbuntu/lib -lSDL -lpthread
+
+$ ./sdl-config --version
+1.2.15
+
+$ ./sdl-config --static-libs
+-L/home/hanlon/Cat6/git_qq_yun/SDL1_2_15/MyUbuntu/lib -Wl,-rpath,/home/hanlon/Cat6/git_qq_yun/SDL1_2_15/MyUbuntu/lib -lSDL -lpthread -lm -ldl -lpthread
+
+$ ./sdl-config --prefix
+/home/hanlon/Cat6/git_qq_yun/SDL1_2_15/MyUbuntu
+
+$ ./sdl-config --exec-prefix
+/home/hanlon/Cat6/git_qq_yun/SDL1_2_15/MyUbuntu
+
+
+6. ffmpeg 与 SDL
+ffmpeg的configure文件 也会调用sdl-config可执行程序 
+see ${SDL_CONFIG} @ ffmpeg configure
+
+enabled sdl && add_cflags $sdl_cflags && add_extralibs $sdl_libs
+
+$sdl_cflag 和 $sdl_libs 都是之前通过sdl-config --cflags和--libs获取的值 
+然后调用 add_cflags 和 add_extralibs 添加到 ffmpeg的编译
+
+enabled sdl 如果ffmpeg使用sdl的话
+
+ffplay依赖 sdl 查阅ffmpeg configure
+
+ffplay_deps="avcodec avformat swscale swresample sdl" (fflay依赖的所有模块)
+
+7.在.bashrc中加入到PATH环境变量中
+SDL_PATH=/home/hanlon/Cat6/git_qq_yun/SDL1_2_15/MyUbuntu/bin
+export PATH=$PATH:$SDL_PATH
+
+8.目录:
+
+MyUbuntu/
+├── bin
+│   └── sdl-config
+├── include
+│   └── SDL
+│       ├── begin_code.h
+│       ├── close_code.h
+│       ├── SDL_active.h
+│       ├── SDL_audio.h
+│       ├── SDL_byteorder.h
+│       ├── SDL_cdrom.h
+│       ├── SDL_config.h
+│       ├── SDL_cpuinfo.h
+│       ├── SDL_endian.h
+│       ├── SDL_error.h
+│       ├── SDL_events.h
+│       ├── SDL_getenv.h
+│       ├── SDL.h
+│       ├── SDL_joystick.h
+│       ├── SDL_keyboard.h
+│       ├── SDL_keysym.h
+│       ├── SDL_loadso.h
+│       ├── SDL_main.h
+│       ├── SDL_mouse.h
+│       ├── SDL_mutex.h
+│       ├── SDL_name.h
+│       ├── SDL_opengl.h
+│       ├── SDL_platform.h
+│       ├── SDL_quit.h
+│       ├── SDL_rwops.h
+│       ├── SDL_stdinc.h
+│       ├── SDL_syswm.h
+│       ├── SDL_thread.h
+│       ├── SDL_timer.h
+│       ├── SDL_types.h
+│       ├── SDL_version.h
+│       └── SDL_video.h
+├── lib
+│   ├── libSDL-1.2.so.0 -> libSDL-1.2.so.0.11.4
+│   ├── libSDL-1.2.so.0.11.4
+│   ├── libSDL.a
+│   ├── libSDL.la
+│   ├── libSDLmain.a
+│   ├── libSDLmain.la
+│   ├── libSDL.so -> libSDL-1.2.so.0.11.4
+│   └── pkgconfig
+│       └── sdl.pc
+└── share
+    ├── aclocal
+    │   └── sdl.m4
+    └── man
+        └── man3
+            ├── SDL_ActiveEvent.3
+		(省略man目录余下内容)
+    9 directories, 216 files
+
+
+9.另外还有 SDL_image 1.2 SDL_mixer SDL_net   
+www.libsdl.org/projects/
+http://www.libsdl.org/projects/SDL_mixer/release/ 可以下载指定版本
+
+
+10. configure说明 ./configure --help 
+
+编译参数设置
+  --enable-audio          Enable the audio subsystem [default=yes]
+  --enable-video          Enable the video subsystem [default=yes]
+  --enable-oss            support the OSS audio API [default=yes]
+  --enable-alsa           support the ALSA audio API [default=yes]
+  --enable-rpath          use an rpath when linking SDL [default=yes] 默认yes,这样连接SDL库使用绝对路径 (see ./sdl-config --libs 会有-rpath选项)
+
+
+环境变量设置包含
+Some influential environment variables:
+  CC          C compiler command
+  CFLAGS      C compiler flags
+  LDFLAGS     linker flags, e.g. -L<lib dir> if you have libraries in a
+              nonstandard directory <lib dir>
+  LIBS        libraries to pass to the linker, e.g. -l<library>
+  CPPFLAGS    C/C++/Objective C preprocessor flags, e.g. -I<include dir> if
+              you have headers in a nonstandard directory <include dir>
+  CPP         C preprocessor
+  CXX         C++ compiler command
+  CXXFLAGS    C++ compiler flags
+  CXXCPP      C++ preprocessor
+  XMKMF       Path to xmkmf, Makefile generator for X Window System
+
+
+

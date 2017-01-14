@@ -21,15 +21,3 @@
 *_g
 \#*
 .\#*
-/.config
-/.version
-/ffmpeg
-/ffplay
-/ffprobe
-/ffserver
-/config.*
-/coverage.info
-/avversion.h
-/lcov/
-/src
-/mapfile
