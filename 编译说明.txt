@@ -1,3 +1,4 @@
+-1.无需编译的安装方法:sudo apt-get install libsdl1.2-dev
 1.下载从www.libsdl.org/download-1.2.php (ffmpeg需要用到1.2版本SDL 不能用2.x版本 SDL2.x有改动一些变量函数定义等)
 2. ./configure --prefix=`pwd`/MyUbuntu 指定安装目录MyUbuntu
 3. make遇到错误(ubuntu14.04 64bits)
@@ -24,7 +25,7 @@ SDL_X11_SYM(int,_XData32,(Display *dpy,register _Xconst long *data,unsigned len)
 
 4. make  make install 安装在 MyUbuntu目录 
 
-5. 使用编译出来的sdl-config确认编译/安装信息 
+5. 使用编译出来的sdl-config确认编译/安装信息 (sdl-config作用类似pkg-config)
 $ ./sdl-config --cflags
 -I/home/hanlon/Cat6/git_qq_yun/SDL1_2_15/MyUbuntu/include/SDL -D_GNU_SOURCE=1 -D_REENTRANT
 
@@ -127,13 +128,21 @@ www.libsdl.org/projects/
 http://www.libsdl.org/projects/SDL_mixer/release/ 可以下载指定版本
 
 
-10. configure说明 ./configure --help 
+10. configure说明 ./configure --help  config过程的打印可以看 config.log 对应configure中的 echo "xxx" >&5 的输出 echo "xxx" >&6代表终端输出
 
-编译参数设置
+编译参数设置(e.g)
   --enable-audio          Enable the audio subsystem [default=yes]
   --enable-video          Enable the video subsystem [default=yes]
   --enable-oss            support the OSS audio API [default=yes]
   --enable-alsa           support the ALSA audio API [default=yes]
+  --enable-alsa           support the ALSA audio API [default=yes]
+  --disable-alsatest      Do not try to compile and run a test Alsa program
+  --enable-alsa-shared    dynamically load ALSA audio support [default=yes]
+  --enable-esd            support the Enlightened Sound Daemon [default=yes]
+  --disable-esdtest       Do not try to compile and run a test ESD program
+  --enable-esd-shared     dynamically load ESD audio support [default=yes]
+  --enable-pulseaudio     use PulseAudio [default=yes]
+  --enable-pulseaudio-shared
   --enable-rpath          use an rpath when linking SDL [default=yes] 默认yes,这样连接SDL库使用绝对路径 (see ./sdl-config --libs 会有-rpath选项)
 
 
@@ -151,6 +160,172 @@ Some influential environment variables:
   CXXFLAGS    C++ compiler flags
   CXXCPP      C++ preprocessor
   XMKMF       Path to xmkmf, Makefile generator for X Window System
+
+
+实际configure过程中会检查系统是否支持oss alsa pulseaudio 
+checking for OSS audio support... yes				<= 支持OSS
+checking for dmedia audio support... no
+checking for ALSA CFLAGS... 
+checking for ALSA LDFLAGS...  -lasound -lm -ldl -lpthread
+checking for libasound headers version >= 0.9.0... not present.
+checking for snd_ctl_open in -lasound... no			<= 不支持 ALSA
+checking for artsc-config... no
+checking for esd-config... no
+checking for ESD - version >= 0.2.8... no
+*** The esd-config script installed by ESD could not be found
+*** If ESD was installed in PREFIX, make sure PREFIX/bin is in
+*** your path, or set the ESD_CONFIG environment variable to the
+*** full path to esd-config.
+checking for pkg-config... /usr/bin/pkg-config
+checking for PulseAudio 0.9 support... no			<= 不支持 pulseaudio 
+checking audio/audiolib.h usability... no
+checking audio/audiolib.h presence... no
+checking for audio/audiolib.h... no
+checking for AuOpenServer in -laudio... no
+checking for NAS audio support... no
+
+
+从 config.log的打印可以看到:
+configure:20086: checking for OSS audio support
+configure:20115: gcc -c -g -O2 -I./include -D_GNU_SOURCE=1  -I./include -D_GNU_SOURCE=1 conftest.c >&5
+configure:20121: $? = 0
+configure:20191: result: yes
+
+CheckOSS()使用两种方法来检查系统是否支持OSS 都是通过编译来检查的,区别是
+a. #include <soundcard.h>		--> 编译成功 have_oss=yes  // ubuntu 14.04 64bits
+b. #include <sys/soundcard.h>	--> 编译成功 have_oss=yes  #define SDL_AUDIO_DRIVER_OSS_SOUNDCARD_H 1
+--> 如果某一种成功的话 #define SDL_AUDIO_DRIVER_OSS 1
+
+OSS编译通过(代表系统安装依赖的开发库) 所以SDL支持OSS(但是系统未必支持 没有驱动设备节点)
+
+CheckALSA()也使用编译的方法来测试系统是否提供ALSA API支持,并 来确认系统是否有该设备
+
+第一步:
+configure:20574: result: no
+configure:20255: checking for ALSA CFLAGS
+configure:20261: result: 
+configure:20264: checking for ALSA LDFLAGS
+configure:20277: result:  -lasound -lm -ldl -lpthread
+configure:20281: checking for libasound headers version >= 0.9.0  // libasound最低版本 通过创建及编译文件 SND_LIB_MAJOR SOUNDLIB_VERSION_MAJOR等宏定义(asoundlib.h-->"alsa/version.h"中定义)
+configure:20353: gcc -c -g -O2 -I./include -D_GNU_SOURCE=1  -I./include -D_GNU_SOURCE=1 conftest.c >&5
+conftest.c:89:28: fatal error: alsa/asoundlib.h: No such file or directory
+ #include <alsa/asoundlib.h>    // 这种就代表系统没有安装依赖库/依赖库的头文件 
+                            ^
+compilation terminated.
+configure:20359: $? = 1
+configure: failed program was:
+....
+
+第二步:(--enable-alsatest 可以配置是否测试)
+configure:20370: result: not present.
+configure:20387: checking for snd_ctl_open in -lasound // 调用 return snd_ctl_open (); 并返回结果 
+configure:20422: gcc -o conftest -g -O2 -I./include -D_GNU_SOURCE=1  -I./include -D_GNU_SOURCE=1   conftest.c -lasound   -lasound -lm -ldl -lpthread  >&5
+/usr/bin/ld: cannot find -lasound		// 代表系统没有这个Sound API支持
+/usr/bin/ld: cannot find -lasound
+collect2: error: ld returned 1 exit status
+configure:20428: $? = 1
+configure: failed program was:
+
+CheckPulseAudio() 只会判断libpulse-simple是否存在并版本大于0.9 
+if test x$PKG_CONFIG != xno; then
+	if $PKG_CONFIG --atleast-pkgconfig-version 0.7 && $PKG_CONFIG --atleast-version $PULSE_REQUIRED_VERSION libpulse-simple; then
+		PULSE_CFLAGS=`$PKG_CONFIG --cflags libpulse-simple`
+		PULSE_LIBS=`$PKG_CONFIG --libs libpulse-simple`
+		audio_pulse=yes
+	fi
+fi
+
+11.依赖的开发库
+
+查看SDL_config.h 可以看到 configure之后执行的结果:(SDL_config_macos.h SDL_config_win32.h 这些都是SDL预先针对某些系统提供的参考)
+.......
+#define SDL_AUDIO_DRIVER_DISK 1
+#define SDL_AUDIO_DRIVER_DUMMY 1
+/* #undef SDL_AUDIO_DRIVER_DMEDIA */
+/* #undef SDL_AUDIO_DRIVER_DSOUND */
+/* #undef SDL_AUDIO_DRIVER_PULSE */
+/* #undef SDL_AUDIO_DRIVER_PULSE_DYNAMIC */
+/* #undef SDL_AUDIO_DRIVER_ESD */
+/* #undef SDL_AUDIO_DRIVER_ESD_DYNAMIC */
+/* #undef SDL_AUDIO_DRIVER_MINT */
+/* #undef SDL_AUDIO_DRIVER_MMEAUDIO */
+/* #undef SDL_AUDIO_DRIVER_NAS */
+/* #undef SDL_AUDIO_DRIVER_NAS_DYNAMIC */
+/* #undef SDL_AUDIO_DRIVER_OSS */
+/* #undef SDL_AUDIO_DRIVER_OSS_SOUNDCARD_H */
+.......
+
+SDL_audio.c 
+static AudioBootStrap *bootstrap[] { 罗列所有支持的音频驱动
+....
+#if SDL_AUDIO_DRIVER_PULSE
+	&PULSE_bootstrap,
+#endif
+#if SDL_AUDIO_DRIVER_ALSA
+	&ALSA_bootstrap,
+#endif
+....}
+
+如果使用自己编译的SDL,那么可能没有对应的依赖库的头文件(用于基于依赖库的二次开发)
+比如  PulseAudio (or ALSA) 基于这两个依赖库的 头文件
+
+所以SDL会尝试使用/dev/dsp但是很多现代Linux系统都不会有/dev/dsp (CheckOSS()能通过因为有对应的OSS开发库 但是系统不支持/没有设备节点)
+因此也会造成 SDL_Init(SDL_INIT_AUDIO) 成功 但是没有对应的音频设备 SDL_OpenAudio --> SDL_InitSubSystem --> current_audio == NULL 
+
+可以通过
+	apt-get install libasound2-dev libpulse-dev" // 可以不装libpulse-dev, libasound2-dev就可以了
+	然后 configure
+这样就可以让SDL支持PulseAudio and ALSA support.
+
+apt-get install libasound2-dev 会增加头文件
+/usr/include/sys/asoundlib.h
+/usr/include/alsa/asoundlib.h
+再次执行SDL的configure 打印(config.log):
+configure:20255: checking for ALSA CFLAGS
+configure:20261: result: 
+configure:20264: checking for ALSA LDFLAGS
+configure:20277: result:  -lasound -lm -ldl -lpthread
+configure:20281: checking for libasound headers version >= 0.9.0
+configure:20353: gcc -c -g -O2 -I./include -D_GNU_SOURCE=1  -I./include -D_GNU_SOURCE=1 conftest.c >&5
+configure:20359: $? = 0
+configure:20364: result: found.
+configure:20387: checking for snd_ctl_open in -lasound
+configure:20422: gcc -o conftest -g -O2 -I./include -D_GNU_SOURCE=1  -I./include -D_GNU_SOURCE=1   conftest.c -lasound   -lasound -lm -ldl -lpthread  >&5
+configure:20428: $? = 0   <= 代表snd_ctl_open执行成功
+configure:20446: result: yes
+
+SDL_config.h
+#define SDL_AUDIO_DRIVER_ALSA 1
+#define SDL_AUDIO_DRIVER_ALSA_DYNAMIC "libasound.so.2"
+
+
+
+如果使用系统的SDL(sudo apt-get install libsdl1.2-dev )
+那么只需要 
+SDL_AUDIODRIVER=pulse ./ffplay test.mp4
+or
+SDL_AUDIODRIVER=alsa ./ffplay test.mp4 
+
+
+SDL使用不同的后端'backends'来支持Linux声音.Linux系统非常分散和不兼容部分Sound API.
+SDL尝试不同的API来测试，确定系统中哪个Sound API能用,所以使用SDL就不需要自己兼容和实现不同系统的Sound API
+
+
+12.SDL的作用与支持:
+www.cnblogs.com/tocy/p/Beginning-SDL2-1-Introduction.html
+
+
+12.音频驱动
+ALSA: Advanced Linux Sound Architecture.
+PulseAudio: A sound "server".
+
+PulseAudio是一个声音服务器,
+一个后台进程从一个或多个音源(进程或输入设备)接受声音输入
+然后重定向声音到一个或多个槽(声卡 远程网络PulseAudio服务 或其他进程)
+PulseAudio适合作为开放声音后台(ESD)的替代品
+对于OSS的软件,PulseAudio提供padsp工具,用来代替硬件文件夹像/dev/dsp,
+欺骗应用程序,使程序以为它们有声卡的完全控制权.
+在事实上,它们的输出被PulseAudio重定向.
 
 
 

@@ -1,3 +1,7 @@
+build/
+config.log
+config.status
+MyUbuntu/
 *.a
 *.o
 *.o.*

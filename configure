@@ -20135,6 +20135,9 @@ fi
 
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
         fi
+		
+		{ echo "$as_me:$LINENO: result: $have_oss" >&5 ;}
+
         if test x$have_oss != xyes; then
             cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */

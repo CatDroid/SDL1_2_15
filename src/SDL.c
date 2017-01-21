@@ -90,6 +90,8 @@ int SDL_InitSubSystem(Uint32 flags)
 		if ( SDL_VideoInit(SDL_getenv("SDL_VIDEODRIVER"),
 		                   (flags&SDL_INIT_EVENTTHREAD)) < 0 ) {
 			return(-1);
+		}else{
+			printf("SDL_VideoInit success\n");
 		}
 		SDL_initialized |= SDL_INIT_VIDEO;
 	}
@@ -102,14 +104,19 @@ int SDL_InitSubSystem(Uint32 flags)
 
 #if !SDL_AUDIO_DISABLED
 	/* Initialize the audio subsystem */
-	
+
+	/* 如果系统有支持多种 audio driver /video driver可以设置环境变量来选择
+		SDL_putenv("SDL_AUDIODRIVER=pulse")
+		SDL_putenv("SDL_VIDEODRIVER=dummy"); // ffmpeg
+
+	*/
 	if ( (flags & SDL_INIT_AUDIO) && !(SDL_initialized & SDL_INIT_AUDIO) ) {
 		if ( SDL_AudioInit(SDL_getenv("SDL_AUDIODRIVER")) < 0 ) {
 			//SDL_SetError("SDL_AudioInit fail ! SDL_getenv SDL_AUDIODRIVER %s ", SDL_getenv("SDL_AUDIODRIVER") );
 			SDL_SetError("SDL_AudioInit fail !");
 			return(-1);
 		}else{
-			printf
+			printf("SDL_AudioInit success\n" );
 		}
 		SDL_initialized |= SDL_INIT_AUDIO;
 	}

@@ -342,6 +342,7 @@ int SDL_AudioInit(const char *driver_name)
 #endif /* SDL_AUDIO_DRIVER_ESD */
 	if ( audio == NULL ) {
 		if ( driver_name != NULL ) {
+			printf("SDL_AUDIODRIVER is set,that is , user set certain driver_name %s ",driver_name  );
 #if 0	/* This will be replaced with a better driver selection API */
 			if ( SDL_strrchr(driver_name, ':') != NULL ) {
 				idx = atoi(SDL_strrchr(driver_name, ':')+1);
@@ -356,16 +357,23 @@ int SDL_AudioInit(const char *driver_name)
 				}
 			}
 		} else {
+			printf("SDL_AUDIODRIVER isNot set and SDL_AUDIO_DRIVER_ESD isNot used, so loop and test all audio drivers\n");
 			for ( i=0; bootstrap[i]; ++i ) {
+				printf("try to test audio driver %s\n" ,  bootstrap[i]->name);
 				if ( bootstrap[i]->available() ) {
 					audio = bootstrap[i]->create(idx);
 					if ( audio != NULL ) {
 						break;
 					}
+					printf("test audio driver %s fail with create(idx)\n" , bootstrap[i]->name);
+				}else{
+					printf("test audio driver %s fail with available()\n" ,  bootstrap[i]->name);
+
 				}
 			}
+			printf("loop and test all dirvers done: %s\n" , ((audio == NULL)?"fail" :"success") );
 		}
-		if ( audio == NULL ) {
+		if ( audio == NULL ) { // 注意这里即使错误了 也不会返回-1
 			SDL_SetError("No available audio device");
 #if 0 /* Don't fail SDL_Init() if audio isn't available.
          SDL_OpenAudio() will handle it at that point.  *sigh*
@@ -401,9 +409,11 @@ int SDL_OpenAudio(SDL_AudioSpec *desired, SDL_AudioSpec *obtained)
 
 	/* Start up the audio driver, if necessary */
 	if ( ! current_audio ) {
-		if ( (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) ||
-		     (current_audio == NULL) ) {
-		    //SDL_SetError("SDL_InitSubSystem fail ");
+		if ( (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) ) {
+			SDL_SetError("SDL_InitSubSystem SDL_INIT_AUDIO fail ");
+			return(-1);
+		}else if(  current_audio == NULL  ){
+			SDL_SetError("current_audio == NULL ");
 			return(-1);
 		}
 	}
